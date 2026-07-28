@@ -6,10 +6,15 @@ synchronized multiscreen video-wall playback across BrightSign players, using
 each physical player to a wall/screen position instead of hardcoding per-device settings
 into the presentation.
 
+The `sync-config.json` file itself is generated using the
+[bs-videowall-config-builder](https://romeolb.github.io/bs-videowall-config-builder/) tool.
+
 ## Prerequisites
 
-- **Enhanced Sync must be disabled** in the BrightAuthor:connected presentation — this
-  plugin replaces BAC:on's built-in sync mechanism entirely.
+- **Player Sync must be disabled** (Presentation Settings > Interactive > Networking >
+  Player Sync > leave **Enable** unchecked) — this plugin replaces BAC:on's built-in sync
+  mechanism entirely, automatically managing leader/follower roles and sync messages
+  itself based on `sync-config.json`.
 - All players in a wall must be networked with PTP reachable between them (same
   `ptp_domain`, matching `ptp_interface`).
   - **Wi-Fi is not supported as the PTP interface** — the plugin intentionally skips
@@ -19,26 +24,124 @@ into the presentation.
   match the presentation itself: `<presentationName>.json`. At startup the plugin copies
   this file to `sync-config.json` on the player's default drive and reads it from there.
 
-<!-- TODO(rlb): fill in the exact BrightAuthor:connected steps for registering this
-     script as a zone plugin (plugin name, which zone(s) it's attached to, how the
-     matching <presentationName>.json asset gets added to the asset pool) — this needs
-     to come from your own BAC:on workflow rather than being inferred from the script. -->
+## Setting up a synchronized presentation (step by step)
+
+Example walkthrough for a 2x2 video wall.
+
+### 1. Create the presentation in BrightAuthor:connected
+
+![Create presentation](images/01-create-presentation.png)
+
+`Presentation` menu > choose the **Basic > Single Zone > Playlist** template
+(a layout with one video or image zone). Fill in:
+
+| Field | Example value |
+|---|---|
+| Name | `2x2-sync` |
+| Target Player | `XT1144` |
+| Connector | `HDMI` |
+| Output Resolution | `1920x1080` |
+| Target Frame Rate | `50p` |
+| Screen Orientation | `Landscape` |
+
+Click **Start** to create the presentation.
+
+### 2. Switch the presentation to Advanced mode
+
+![Switch to Advanced mode](images/02-advanced-mode.png)
+
+In the presentation's **Content** tab, use the **Simple / Advanced** dropdown (top
+right) and select **Advanced (interactivity, widgets, etc.)**. Advanced mode is required
+to attach a zone plugin and add non-media assets like `sync-config.json` to the asset
+pool.
+
+### 3. Add a Super State to the interactive playlist
+
+![Add Super State named SyncMe](images/03-super-state.png)
+
+In the zone's **Widgets** panel, drag the **Super State** widget onto the interactive
+playlist canvas. In **State Properties** on the right, set its **Name** to `SyncMe`.
+
+### 4. Add an Event Handler and one Media List per screen
+
+![Event Handler and screen1-4 Media Lists inside SyncMe](images/04-event-handler-media-lists.png)
+
+Open the `SyncMe` super state. From **Widgets**, add an **Event Handler** widget and set
+it as the initial state (the home icon). Then add one **Media List** widget per screen in
+the wall, naming each state to match the `screens.<name>` keys used in
+`sync-config.json` — for a 2x2 wall: `screen1`, `screen2`, `screen3`, `screen4`.
+
+### 5. Add the video file(s) to each screen's Media List
+
+![Assign a video asset to the screen1 Media List](images/05-assign-media.png)
+
+Open each `screen<N>` Media List state and add the video asset(s) that should play on
+that physical screen — e.g. the quadrant of the source video meant for the top-left
+display goes in `screen1`, and so on for each screen in the wall.
+
+### 6. Add `rlb-sync-screens.brs` as a Script Plugin
+
+![Add rlb-sync-screens.brs as the SyncScreenPlayback script plugin](images/06-script-plugin.png)
+
+Open the presentation's **Presentation Settings** panel (top right) > **Support
+Content** > **Script Plugin** > **+** to add one. Set:
+
+| Field | Value |
+|---|---|
+| Script plugin name | `SyncScreenPlayback` |
+| Script plugin source | `rlb-sync-screens.brs` |
+
+The plugin name **must** be `SyncScreenPlayback` — this is how BrightAuthor:connected
+associates the uploaded `.brs` source with the `SyncScreenPlayback` zone plugin the
+script implements.
+
+### 7. Add the `sync-config.json` asset, named to match the presentation
+
+![Add <presentationName>.json under Support Content > Files](images/07-config-file-asset.png)
+
+Generate the wall config JSON with
+[bs-videowall-config-builder](https://romeolb.github.io/bs-videowall-config-builder/),
+then add it to **Presentation Settings > Support Content > Files** (**+**). The file
+**must be named to match the presentation**: for a presentation named `2x2-sync`, the
+file must be named `2x2-sync.json`. At startup the plugin copies this file to
+`sync-config.json` on the player's default drive — see the format below.
+
+### 8. Make sure Player Sync is disabled
+
+![Player Sync Enable checkbox left unchecked](images/08-player-sync-disabled.png)
+
+In **Presentation Settings > Interactive > Networking > Player Sync**, leave **Enable**
+unchecked. The plugin and `sync-config.json` handle assigning master/leader and
+slave/follower roles and sending/handling sync messages automatically — BAC:on's
+built-in Player Sync must stay off, per the Prerequisites above.
+
+### 9. Publish to all players in the wall
+
+Publish the presentation to every player listed in the `sync-config.json` you generated
+in step 7 (matched by serial number in the `screens` map). Once all players have synced
+content and rebooted/restarted as needed, playback should lock together across the wall.
+
+> **Note:** expect up to ~1 frame of drift/offset between players even when synced
+> correctly. This is more noticeable on Series 5 players.
 
 ## `sync-config.json` format
 
 The file is a **JSON array of wall configs** — one entry per physical video wall (i.e.
 one entry per group of players that sync together), not one entry per player. On
 startup, every player reads the *entire* array and searches every entry's `screens` map
-for its own serial number to figure out which wall it belongs to.
+for its own serial number to figure out which wall it belongs to. This is the format
+produced by the [bs-videowall-config-builder](https://romeolb.github.io/bs-videowall-config-builder/)
+tool (serials below are dummy placeholders):
 
 ```json
 [
   {
-    "config_file": "Frozen 2x2.json",
+    "config_file": "Example Wall.json",
     "Multiscreen_Mode_Enabled": false,
     "ptp_domain": "0",
     "ptp_interface": "eth0",
-    "master_serial": "26G393001646",
+    "master_serial": "AAA000000001",
+    "wall_name": "Lobby Wall",
     "wall": {
       "columns": 2,
       "rows": 2,
@@ -48,20 +151,74 @@ for its own serial number to figure out which wall it belongs to.
     },
     "screens": {
       "screen1": {
-        "serial": "26G393001646",
-        "MultiscreenWidth": 2,
-        "MultiscreenHeight": 2,
+        "serial": "AAA000000001",
+        "MultiscreenWidth": 0,
+        "MultiscreenHeight": 0,
         "MultiscreenX": 0,
         "MultiscreenY": 0,
         "x_pct": 0,
         "y_pct": 0,
         "bezel_inputs": { "no_compensation": true }
       },
-      "screen2": { "...": "..." }
+      "screen2": {
+        "serial": "AAA000000002",
+        "MultiscreenWidth": 0,
+        "MultiscreenHeight": 0,
+        "MultiscreenX": 0,
+        "MultiscreenY": 0,
+        "x_pct": 0,
+        "y_pct": 0,
+        "bezel_inputs": { "no_compensation": true }
+      },
+      "screen3": {
+        "serial": "AAA000000003",
+        "MultiscreenWidth": 0,
+        "MultiscreenHeight": 0,
+        "MultiscreenX": 0,
+        "MultiscreenY": 0,
+        "x_pct": 0,
+        "y_pct": 0,
+        "bezel_inputs": { "no_compensation": true }
+      },
+      "screen4": {
+        "serial": "AAA000000004",
+        "MultiscreenWidth": 0,
+        "MultiscreenHeight": 0,
+        "MultiscreenX": 0,
+        "MultiscreenY": 0,
+        "x_pct": 0,
+        "y_pct": 0,
+        "bezel_inputs": { "no_compensation": true }
+      }
+    }
+  },
+  {
+    "config_file": "Example Wall.json",
+    "Multiscreen_Mode_Enabled": false,
+    "ptp_domain": "0",
+    "ptp_interface": "eth0",
+    "master_serial": "AAA000000005",
+    "wall_name": "Break Room Wall",
+    "wall": {
+      "columns": 2,
+      "rows": 2,
+      "screen_width_mm": 0,
+      "screen_height_mm": 0,
+      "bezel_mode": "identical"
+    },
+    "screens": {
+      "screen1": { "serial": "AAA000000005", "MultiscreenWidth": 0, "MultiscreenHeight": 0, "MultiscreenX": 0, "MultiscreenY": 0, "x_pct": 0, "y_pct": 0, "bezel_inputs": { "no_compensation": true } },
+      "screen2": { "serial": "AAA000000006", "MultiscreenWidth": 0, "MultiscreenHeight": 0, "MultiscreenX": 0, "MultiscreenY": 0, "x_pct": 0, "y_pct": 0, "bezel_inputs": { "no_compensation": true } },
+      "screen3": { "serial": "AAA000000007", "MultiscreenWidth": 0, "MultiscreenHeight": 0, "MultiscreenX": 0, "MultiscreenY": 0, "x_pct": 0, "y_pct": 0, "bezel_inputs": { "no_compensation": true } },
+      "screen4": { "serial": "AAA000000008", "MultiscreenWidth": 0, "MultiscreenHeight": 0, "MultiscreenX": 0, "MultiscreenY": 0, "x_pct": 0, "y_pct": 0, "bezel_inputs": { "no_compensation": true } }
     }
   }
 ]
 ```
+
+The array holding two entries above shows two independent walls (e.g. two rooms) sharing
+one `sync-config.json` — every player at the site reads the same file and only acts on
+the entry whose `screens` map contains its own serial.
 
 Field notes:
 
@@ -71,6 +228,8 @@ Field notes:
 | `ptp_domain` / `ptp_interface` | Written to the player's registry if different from what's currently stored; a mismatch triggers a reboot so the new PTP config takes effect. |
 | `screens.<name>.serial` | Serial number of the player that should play the zone/state named `<name>`. This is how a player figures out which zone content it's responsible for (`m.bsp.sign.zoneshsm[0].statetable[<name>]`) — the zone/state name in the presentation must match this key. |
 | `Multiscreen_Mode_Enabled` | When `true`, the player applies `MultiscreenWidth/Height/X/Y` and `x_pct`/`y_pct` bezel compensation from its `screens` entry to the video player. |
+| `config_file` | Not used for role/logic decisions — just printed to the log (`Matched wall config: ...`) once a player finds its entry, for diagnostics. |
+| `wall_name` | Purely descriptive metadata from the config-builder tool; the plugin doesn't read it. |
 
 If a player's serial isn't found in any entry's `screens` map, it logs
 `No matching wall config found in sync-config.json for serial ...` and does not get a
@@ -120,6 +279,8 @@ the playlist is rebuilt, so it stays correct as the feed grows or shrinks.
 ## Known limitations
 
 - Wi-Fi cannot be used as the PTP sync interface (see Prerequisites).
+- Even with correct PTP sync, expect up to ~1 frame of drift/offset between players;
+  more noticeable on Series 5 players.
 - Any BSN.cloud settings/schedule push reboots the player rather than doing a lighter
   content-only refresh.
 - `sync-config.json` must be regenerated/re-uploaded as part of the presentation asset
