@@ -1,8 +1,8 @@
-'27/07/26 - RLB - Plugin for sync screen playback - Cleaned-up
+'30/07/26 - RLB - Plugin for sync screen playback - Cleaned-up
 'Disable enhanced sync in BACon pres to use this plugin
 'SyncScreenPlayback - plugin name
 'plugin filename - rlb-sync-screens.brs
-'upload-v6
+'upload-v7
 'supports both DP and video file in Medialist
 
 Function SyncScreenPlayback_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
@@ -54,6 +54,7 @@ Function newSyncScreenPlayback(msgPort As Object, userVariables As Object, bsp a
 	s.StartDelayLoadFeedTimer = StartDelayLoadFeedTimer
 	s.SyncParam = SyncParam
 	s.BuildPluginPlayers = BuildPluginPlayers
+	s.ApplyLoopMode = ApplyLoopMode
 	s.PluginCleanUpOnTransition = PluginCleanUpOnTransition
 	s.InitSyncTimingLog = InitSyncTimingLog
 	s.WriteSyncTimingEntry = WriteSyncTimingEntry
@@ -119,9 +120,9 @@ End Function
 Function SyncScreenPlayback_ProcessEvent(event As Object) as boolean
 
 	retval = false
-    print "SyncScreenPlayback_ProcessEvent - entry"
-   print "type of m is ";type(m)
-   print "type of event is ";type(event)
+	print "SyncScreenPlayback_ProcessEvent - entry"
+   	print "type of m is ";type(m)
+   	print "type of event is ";type(event)
 
 	if type(event) = "roControlDown" then
 			
@@ -340,12 +341,12 @@ Function HandlePluginVideoEvent(origMsg as Object, m as Object) as boolean
 	userdata = origMsg.GetUserData()
 	if userdata <> invalid then
 		if userdata.name = "rlb-sync-video-player" then	
-			if VideoPlayerEventReceived = 8 then 
+			if VideoPlayerEventReceived = 8 then
 				if m.Player_is_Master = true then
 					m.IndexTracker = m.IndexTracker + 1
 					print "Video End Event Received at: ";m.sTime.GetLocalDateTime()
 					m.PlayfilesFromStorageMedia()
-				end if	
+				end if
 			else if VideoPlayerEventReceived = 3 then
 				videoPlayingTime$ = m.sTime.GetLocalDateTime()
 				print "Video playing Event Received at "; videoPlayingTime$
@@ -569,6 +570,9 @@ Function PlayFileInSync(PlayParam as Object) As Boolean
 				m.currentFileName = m.ScreenPlaylist[fileindex%].path
 				PlayParam.AddReplace("Filename", fullfilepath)
 				if m.ScreenPlaylist[fileindex%].type = "video" then
+					if type(m.ScreenPlaylist[fileindex%].probeData) = "roString" then
+						PlayParam.AddReplace("ProbeString", m.ScreenPlaylist[fileindex%].probeData)
+					end if
 					if m.Multiscreen_Mode_Enabled = true then
 						PlayParam.AddReplace("MultiscreenWidth", m.PluginMultiscreenWidth)
 						PlayParam.AddReplace("MultiscreenHeight", m.PluginMultiscreenHeight)
@@ -577,9 +581,10 @@ Function PlayFileInSync(PlayParam as Object) As Boolean
 						formatBezelx = int((m.PluginMultiscreenBezelX))
 						formatBezely = int((m.PluginMultiscreenBezelY))
 						m.vm.SetMultiscreenBezel(formatBezelx, formatBezely)
-					end if 	
-					result = m.PluginvideoPlayer.PlayFile(PlayParam)	
-				else if m.ScreenPlaylist[fileindex%].type = "image" then		
+					end if
+					m.ApplyLoopMode()
+					result = m.PluginvideoPlayer.PlayFile(PlayParam)
+				else if m.ScreenPlaylist[fileindex%].type = "image" then
 					imagePath = PlayParam.Filename
 					result = m.PluginvideoPlayer.PlayStaticImage(imagePath)
 					m.StartImageTimer()
@@ -606,7 +611,8 @@ Sub SyncParam()
 		' slave processing overhead is ~188ms and the live feed URL check can block
 		' the event queue for ~400ms, causing sync events to be processed after the
 		' PTP sync timestamp has already passed (slave misses the window and plays immediately).
-		m.syncManagerEvent = m.PluginSyncManager.Synchronize(indexedSyncId, 1000)
+		'm.syncManagerEvent = m.PluginSyncManager.Synchronize(indexedSyncId, 300)
+		m.syncManagerEvent = m.PluginSyncManager.Synchronize(indexedSyncId, 1000) 'safer for all Series
 		end if		
 
 		print ""
@@ -824,7 +830,7 @@ Function PluginPlayListBuilder()
 						print "Filename: "; item.filename$
 						filepath$ = m.bsp.assetPoolFiles.getPoolFilePath(item.filename$)
 						print "Filepath: "; filepath$
-						m.ScreenPlaylist.push({filename: item.filename$, path: filepath$, type: item.type})
+						m.ScreenPlaylist.push({filename: item.filename$, path: filepath$, type: item.type, probeData: item.probeData})
 						m.playlistIndex = m.playlistIndex + 1
 					next					
 				end if	
@@ -879,7 +885,7 @@ Function PluginPlayListBuilder()
 			print ""
 			print "PluginPlayListBuilder - seamlessLooping changed to "; m.seamlessLooping; " - restarting video player"
 			print ""
-			m.PluginvideoPlayer.SetLoopMode(m.seamlessLooping)
+			m.ApplyLoopMode()
 			m.PluginvideoPlayer.StopClear()
 			m.IndexTracker = -1
 			if m.Player_is_Master = true then
@@ -1157,6 +1163,17 @@ End function
 
 
 
+'Sets loop mode but playback may be erratic on some video so not recommended for now for better compatibility for most Series...
+Sub ApplyLoopMode()
+	loopModeApplied$ = "NoLoop"
+	m.PluginvideoPlayer.SetLoopMode(loopModeApplied$)
+	print ""
+	print "ApplyLoopMode - SetLoopMode applied: "; loopModeApplied$
+	print ""
+End Sub
+
+
+
 Function BuildPluginPlayers()
 
     VidUserdata = {}
@@ -1171,9 +1188,7 @@ Function BuildPluginPlayers()
 	m.PluginvideoPlayer.SetPort(m.msgPort)
 	m.PluginvideoPlayer.SetAudioOutput(4)
 	m.PluginvideoPlayer.SetVolume(100)
-	'Set Seamless looping for PluginvideoPlayer - 0 to disable and 1 to enable
-	'm.PluginvideoPlayer.SetLoopMode(0)
-	m.PluginvideoPlayer.SetLoopMode(m.seamlessLooping)
+	m.ApplyLoopMode()
 
 	print ""
 	print "BuildPluginPlayers - PluginVideoPlayer and PluginImagePlayer created and configured"
