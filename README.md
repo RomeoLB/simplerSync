@@ -57,8 +57,7 @@ Click **Start** to create the presentation.
 
 In the presentation's **Content** tab, use the **Simple / Advanced** dropdown (top
 right) and select **Advanced (interactivity, widgets, etc.)**. Advanced mode is required
-to attach a zone plugin and add non-media assets like `sync-config.json` to the asset
-pool.
+to add the Super State and other interactive widgets used in the next step.
 
 ### 3. Add a Super State to the interactive playlist
 
