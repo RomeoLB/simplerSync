@@ -834,9 +834,8 @@ Function IsAudioCompatibleForSeamlessLoop(probeData as Object) as boolean
 
 	if type(probeData) <> "roString" and type(probeData) <> "String" then return true
 
-	' roString has no Split() method on this firmware, so find the "|AC=...|" field
-	' manually via Instr/Mid instead. Padding with leading/trailing "|" lets the same
-	' search handle AC= appearing as the first or last field too.
+	' Find the "|AC=...|" field manually via Instr/Mid. Padding with leading/trailing
+	' "|" lets the same search handle AC= appearing as the first or last field too.
 	audioCodec$ = ""
 	searchString$ = "|" + probeData + "|"
 	acFieldStart% = Instr(1, searchString$, "|AC=")
