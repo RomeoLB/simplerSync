@@ -26,7 +26,12 @@ The `sync-config.json` file itself is generated using the
 
 ## Setting up a synchronized presentation (step by step)
 
-Example walkthrough for a 2x2 video wall.
+Example walkthrough for a 2x2 video wall. `Template-BACon-4-screens-sync.bpfx` is a
+starting-point template you can import into BrightAuthor:connected (`Presentation` >
+`Import`) instead of building steps 1-2 from scratch — it already has the single
+video/image zone and the `SyncMe` Super State with its four `screen1`-`screen4` states
+wired up. You'll still need to attach the `SyncScreenPlayback` plugin and add your
+presentation's `sync-config.json` yourself, as described below.
 
 ### 1. Create the presentation in BrightAuthor:connected
 
@@ -262,11 +267,27 @@ BSN.cloud causes an unannounced reboot**, not just a soft content refresh.
 ## Playlist / seamless looping behavior
 
 The plugin rebuilds its playlist from either a populated media-library zone or a live
-data feed on the matched screen's zone. A single-item playlist automatically plays in
-seamless loop mode (no gap between repeats); as soon as a second item is added (e.g. a
-live data feed grows), the plugin disables seamless mode and restarts the video player so
-end-of-file events fire correctly between items — this recalculation happens every time
-the playlist is rebuilt, so it stays correct as the feed grows or shrinks.
+data feed on the matched screen's zone. When the rebuilt playlist has exactly one item,
+the plugin checks that item's probe data (`AC=` audio-codec field) via
+`IsAudioCompatibleForSeamlessLoop`: if the file has no audio track, or its audio codec is
+on the (currently empty) `COMPATIBLE_AUDIO_CODECS` allow-list, it enables seamless looping
+— `SetLoopMode(1)`, and the plugin does not restart the file itself on end-of-file, since
+the player loops it internally. Otherwise (multiple items, or a single item with an
+audio codec not known to loop cleanly) it disables seamless mode — `SetLoopMode(0)` — and
+restarts the video player on every end-of-file so events fire correctly between items.
+This recalculation happens every time the playlist is rebuilt, so it stays correct as the
+feed grows or shrinks.
+
+**Audio codec allow-list.** `COMPATIBLE_AUDIO_CODECS` is deliberately empty right now —
+AAC is confirmed to loop erratically under `SetLoopMode(1)` and is intentionally excluded,
+and no other codec has been tested and confirmed safe yet. Only silent/no-audio files get
+seamless looping until a specific codec is verified on-device and added to the list.
+
+**Sync watchdog interaction.** The sync watchdog normally reinitializes (and eventually
+reboots) the player if no sync event arrives for `syncWatchdogTimeout` seconds, since that
+normally indicates a failed `roSyncManager`. Seamless-looped single-item playback
+intentionally produces no further sync events once it starts looping, so the watchdog
+skips reinit/reboot and just rearms itself while `m.seamlessLooping = 1`.
 
 ## Diagnostics
 
@@ -290,6 +311,10 @@ the playlist is rebuilt, so it stays correct as the feed grows or shrinks.
 ## Files in this repo
 
 - `rlb-sync-screens.brs` — the plugin.
+- `Template-BACon-4-screens-sync.bpfx` — a BrightAuthor:connected presentation template
+  (import via `Presentation` > `Import`) with the zone and `SyncMe` Super State/screen1-4
+  states already set up, matching the walkthrough above. The plugin and
+  `sync-config.json` still need to be added per-presentation as described below.
 - `sync-config.json` is **not** included here — it's presentation/deployment-specific
   (one file per set of video walls) and must be authored and added to each presentation's
   asset pool separately, named `<presentationName>.json`. See the format above.

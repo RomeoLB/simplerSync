@@ -1,8 +1,8 @@
-'30/07/26 - RLB - Plugin for sync screen playback - Cleaned-up
+'31/07/26 - RLB - Plugin for sync screen playback - Cleaned-up
 'Disable enhanced sync in BACon pres to use this plugin
 'SyncScreenPlayback - plugin name
 'plugin filename - rlb-sync-screens.brs
-'upload-v7
+'upload-v8
 'supports both DP and video file in Medialist
 
 Function SyncScreenPlayback_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
@@ -342,9 +342,14 @@ Function HandlePluginVideoEvent(origMsg as Object, m as Object) as boolean
 	if userdata <> invalid then
 		if userdata.name = "rlb-sync-video-player" then	
 			if VideoPlayerEventReceived = 8 then
-				if m.Player_is_Master = true then
+				print "Video End Event Received at: ";m.sTime.GetLocalDateTime()
+				if m.seamlessLooping = 1 then
+					' Single-item playlist with SetLoopMode(1) applied (no audio track, or a
+					' loop-safe audio codec per IsAudioCompatibleForSeamlessLoop) - the player
+					' loops the file internally, so no restart is triggered here.
+					print "Video End Event - SetLoopMode(1) active, not restarting playback"
+				else if m.Player_is_Master = true then
 					m.IndexTracker = m.IndexTracker + 1
-					print "Video End Event Received at: ";m.sTime.GetLocalDateTime()
 					m.PlayfilesFromStorageMedia()
 				end if
 			else if VideoPlayerEventReceived = 3 then
@@ -447,7 +452,13 @@ Function HandleTimerEventPlugin(origMsg as Object, m as Object) as boolean
 			print ""
 			print "*** SyncWatchdogTimer fired - no sync event in "; m.syncWatchdogTimeout; "s ***"
 			print ""
-			if m.syncWatchdogResetCount < m.syncWatchdogMaxResets then
+			if m.seamlessLooping = 1 then
+				' Single-item playlist under SetLoopMode(1) intentionally stops generating
+				' sync events (see HandlePluginVideoEvent) - no sync event for a long time
+				' is expected here, not a failure, so just rearm the watchdog.
+				print "*** seamlessLooping active - no sync events expected, skipping reinit/reboot ***"
+				m.StartSyncWatchdogTimer()
+			else if m.syncWatchdogResetCount < m.syncWatchdogMaxResets then
 				m.syncWatchdogResetCount = m.syncWatchdogResetCount + 1
 				print "*** Reinitialising SyncManager (attempt "; m.syncWatchdogResetCount; " of "; m.syncWatchdogMaxResets; ") ***"
 				m.SetupSyncManager()
@@ -570,6 +581,7 @@ Function PlayFileInSync(PlayParam as Object) As Boolean
 				m.currentFileName = m.ScreenPlaylist[fileindex%].path
 				PlayParam.AddReplace("Filename", fullfilepath)
 				if m.ScreenPlaylist[fileindex%].type = "video" then
+					print "PlayFileInSync - probeData for "; fullfilepath; ": "; m.ScreenPlaylist[fileindex%].probeData
 					if type(m.ScreenPlaylist[fileindex%].probeData) = "roString" then
 						PlayParam.AddReplace("ProbeString", m.ScreenPlaylist[fileindex%].probeData)
 					end if
@@ -811,6 +823,43 @@ End Sub
 
 
 
+' Parses the pipe-delimited BrightAuthor probe string attached to a media item
+' (e.g. "2|TT=MP4|IX=Y|AP=2|AC=AAC|ACH=2|ASR=48000|...") and returns true if the file
+' has no audio track at all, or has one using a codec confirmed to loop cleanly under
+' SetLoopMode(1). Files with an incompatible (or unconfirmed) audio track fall back to
+' SetLoopMode(0) with an explicit PlayFile restart on every loop instead.
+' AAC is confirmed NOT to loop cleanly - do not add it here. Add a codec to
+' COMPATIBLE_AUDIO_CODECS only once testing has actually confirmed it loops cleanly.
+Function IsAudioCompatibleForSeamlessLoop(probeData as Object) as boolean
+
+	if type(probeData) <> "roString" and type(probeData) <> "String" then return true
+
+	' roString has no Split() method on this firmware, so find the "|AC=...|" field
+	' manually via Instr/Mid instead. Padding with leading/trailing "|" lets the same
+	' search handle AC= appearing as the first or last field too.
+	audioCodec$ = ""
+	searchString$ = "|" + probeData + "|"
+	acFieldStart% = Instr(1, searchString$, "|AC=")
+	if acFieldStart% > 0 then
+		valueStart% = acFieldStart% + 4
+		valueEnd% = Instr(valueStart%, searchString$, "|")
+		audioCodec$ = UCase(Mid(searchString$, valueStart%, valueEnd% - valueStart%))
+	end if
+
+	' no "AC=" field present means no audio track - safe to loop
+	if audioCodec$ = "" then return true
+
+	COMPATIBLE_AUDIO_CODECS = []
+	for each codec in COMPATIBLE_AUDIO_CODECS
+		if audioCodec$ = codec then return true
+	next
+
+	return false
+
+End Function
+
+
+
 Function PluginPlayListBuilder()
 
 	print ""
@@ -873,11 +922,13 @@ Function PluginPlayListBuilder()
 		next
 
 		previousSeamlessLooping = m.seamlessLooping
-		if m.ScreenPlaylist.count() = 1 then
-			'single-item playlist - enable seamless looping so it repeats without a gap
+		if m.ScreenPlaylist.count() = 1 and IsAudioCompatibleForSeamlessLoop(m.ScreenPlaylist[0].probeData) then
+			'single-item playlist with no audio track or a loop-safe audio codec -
+			'enable seamless looping (SetLoopMode(1), no restart) so it repeats without a gap
 			m.seamlessLooping = 1
 		else
-			'multi-item playlist - disable seamless looping so end-of-file events fire between items
+			'multi-item playlist, or single item with an audio codec that loops erratically -
+			'disable seamless looping (SetLoopMode(0)) and restart via PlayFile on every loop
 			m.seamlessLooping = 0
 		end if
 
@@ -1163,12 +1214,16 @@ End function
 
 
 
-'Sets loop mode but playback may be erratic on some video so not recommended for now for better compatibility for most Series...
+' SetLoopMode(1) for a single-item playlist, SetLoopMode(0) for more than one item.
 Sub ApplyLoopMode()
-	loopModeApplied$ = "NoLoop"
-	m.PluginvideoPlayer.SetLoopMode(loopModeApplied$)
+	if m.seamlessLooping = 1 then
+		loopModeApplied% = 1
+	else
+		loopModeApplied% = 0
+	end if
+	m.PluginvideoPlayer.SetLoopMode(loopModeApplied%)
 	print ""
-	print "ApplyLoopMode - SetLoopMode applied: "; loopModeApplied$
+	print "ApplyLoopMode - SetLoopMode applied: "; loopModeApplied%
 	print ""
 End Sub
 
