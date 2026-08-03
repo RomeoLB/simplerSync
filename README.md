@@ -12,7 +12,7 @@ The `sync-config.json` file itself is generated using the
 ## Prerequisites
 
 - **Player Sync must be disabled** (Presentation Settings > Interactive > Networking >
-  Player Sync > leave **Enable** unchecked) — this plugin replaces BAC:on's built-in sync
+  Player Sync > leave **Enable** unchecked) — this plugin replaces BrightAuthor:Connected's built-in sync
   mechanism entirely, automatically managing leader/follower roles and sync messages
   itself based on `sync-config.json`.
 - All players in a wall must be networked with PTP reachable between them (same
@@ -139,7 +139,7 @@ file must be named `2x2-sync.json`. At startup the plugin copies this file to
 
 In **Presentation Settings > Interactive > Networking > Player Sync**, leave **Enable**
 unchecked. The plugin and `sync-config.json` handle assigning master/leader and
-slave/follower roles and sending/handling sync messages automatically — BAC:on's
+slave/follower roles and sending/handling sync messages automatically — BrightAuthor:Connected's
 built-in Player Sync must stay off, per the Prerequisites above.
 
 ### 9. Publish to all players in the wall
