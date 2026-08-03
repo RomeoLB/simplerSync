@@ -1,8 +1,8 @@
-'31/07/26 - RLB - Plugin for sync screen playback - Cleaned-up
+'03/08/26 - RLB - Plugin for sync screen playback - Cleaned-up
 'Disable enhanced sync in BACon pres to use this plugin
 'SyncScreenPlayback - plugin name
 'plugin filename - rlb-sync-screens.brs
-'upload-v8
+'upload-v9
 'supports both DP and video file in Medialist
 
 Function SyncScreenPlayback_Initialize(msgPort As Object, userVariables As Object, bsp as Object)
@@ -692,8 +692,16 @@ Sub PluginConfigDevice()
 	rebootRequired = false
     m.screenName$ = ""
     presname$ = m.bsp.activepresentation$
-    jsonFilename$ = presname$ + ".json"
-    jsonPathinPool$ = m.bsp.assetPoolFiles.getPoolFilePath(jsonFilename$)
+
+	' Allow the config asset to be named either "sync-config.json" (simpler, checked
+	' first) or "<presentationName>.json" (fallback, for presentations that already
+	' name it that way).
+	jsonPathinPool$ = m.bsp.assetPoolFiles.getPoolFilePath("sync-config.json")
+	if jsonPathinPool$ = "" then
+		jsonFilename$ = presname$ + ".json"
+		jsonPathinPool$ = m.bsp.assetPoolFiles.getPoolFilePath(jsonFilename$)
+	end if
+
 	currentDrive$ = GetDefaultDrive()
 	destinationFilePath$ = currentDrive$ + "sync-config.json"
 
