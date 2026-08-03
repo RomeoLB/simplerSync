@@ -507,7 +507,7 @@
         }
       },
       "wssDeviceSpec": {},
-      "lastModifiedTime": "2026-07-31T16:33:57.121Z"
+      "lastModifiedTime": "2026-08-03T09:18:07.201Z"
     },
     "zones": {
       "zonesById": {
@@ -798,7 +798,13 @@
       "canvasesById": {}
     },
     "deviceWebPages": {},
-    "scriptPlugins": {},
+    "scriptPlugins": {
+      "330b9431-430f-4000-ac52-86e4a3733000": {
+        "id": "330b9431-430f-4000-ac52-86e4a3733000",
+        "name": "SyncScreenPlayback",
+        "assetId": "edce1a9c-62c7-4000-afcb-bba3953df000"
+      }
+    },
     "parserPlugins": {},
     "videoModePlugins": {},
     "auxiliaryFiles": {},
@@ -806,7 +812,21 @@
     "partnerProducts": {},
     "customAutorun": "0",
     "bmapSpec": "0",
-    "assetMap": {},
+    "assetMap": {
+      "edce1a9c-62c7-4000-afcb-bba3953df000": {
+        "id": "edce1a9c-62c7-4000-afcb-bba3953df000",
+        "name": "rlb-sync-screens.brs",
+        "path": "/Users/rlb/Documents/sync-playground/simplerSync/",
+        "networkId": 0,
+        "location": "Local",
+        "assetType": "BrightScript",
+        "scope": "e546cc4694d85e45",
+        "locator": "file:///Users/rlb/Documents/sync-playground/simplerSync/rlb-sync-screens.brs",
+        "fileSize": 41995,
+        "lastModifiedDate": "2026-08-03T09:08:01.526Z",
+        "refCount": 1
+      }
+    },
     "thumbnail": {
       "type": "image/jpeg",
       "data": "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",
@@ -820,19 +840,14 @@
   "selection": {
     "hovered": null,
     "selectionContainer": {
-      "id": "7b2c3aa2-8a7e-49b3-98f9-50692037cda3",
-      "type": "MediaList",
-      "selectableType": "STATE"
+      "id": "30024e36-3a2a-4800-a6f6-e34f53c77800",
+      "type": "SuperState",
+      "selectableType": "STATE",
+      "name": "SyncMe",
+      "containerId": "550eee7c-b46e-4000-a46f-c04e4cf76800"
     },
     "selectionEntities": {},
-    "prevSelectionEntities": {
-      "7b2c3aa2-8a7e-49b3-98f9-50692037cda3": {
-        "id": "7b2c3aa2-8a7e-49b3-98f9-50692037cda3",
-        "type": "MediaList",
-        "selectableType": "STATE",
-        "selectableData": null
-      }
-    },
+    "prevSelectionEntities": {},
     "isEventAdvancedEnabled": false,
     "activeAssetMenuTab": "ASSETS"
   },
@@ -889,9 +904,9 @@
         "k": 0.825
       },
       "30024e36-3a2a-4800-a6f6-e34f53c77800": {
-        "x": -444.75402244385873,
-        "y": -185.134405985029,
-        "k": 0.9944513204168525
+        "x": 94.54718894731036,
+        "y": 42.441565569770376,
+        "k": 0.5039350871418343
       }
     },
     "isLoaderEnabled": false

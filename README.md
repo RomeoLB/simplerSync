@@ -24,13 +24,36 @@ The `sync-config.json` file itself is generated using the
   match the presentation itself: `<presentationName>.json`. At startup the plugin copies
   this file to `sync-config.json` on the player's default drive and reads it from there.
 
+## Quick start: use the provided template (alternative workflow)
+
+If you don't need a custom zone layout, skip the manual build below.
+`Template-BACon-4-screens-sync.bpfx` is a ready-made 2x2 video wall presentation with the
+`SyncMe` Super State, `screen1`-`screen4` states, and `rlb-sync-screens.brs` already
+attached as the `SyncScreenPlayback` script plugin — you only need to add your content
+and config, then upload:
+
+1. Import the template into BrightAuthor:connected (`Presentation` > `Import`).
+2. Add your video asset(s) to each screen's Media List (see step 5 below).
+3. Generate `sync-config.json` with
+   [bs-videowall-config-builder](https://romeolb.github.io/bs-videowall-config-builder/)
+   and add it under **Presentation Settings > Support Content > Files**. Since the plugin
+   checks for a file named `sync-config.json` first, falling back to
+   `<presentationName>.json` only if that isn't found, you can add it with that fixed
+   name as-is — no need to rename it to match the presentation.
+4. Confirm **Player Sync** is left disabled (see step 8 below).
+5. Upload the presentation to BSN.cloud using the **BrightAuthor:Connected** Mac or
+   Windows client, then publish it to the players in your wall from there.
+
+For a from-scratch build with every step explained (building the zone, Super State, and
+plugin attachment yourself), continue with the walkthrough below.
+
 ## Setting up a synchronized presentation (step by step)
 
 Example walkthrough for a 2x2 video wall. `Template-BACon-4-screens-sync.bpfx` is a
 starting-point template you can import into BrightAuthor:connected (`Presentation` >
 `Import`) instead of building steps 1-2 from scratch — it already has the single
-video/image zone and the `SyncMe` Super State with its four `screen1`-`screen4` states
-wired up. You'll still need to attach the `SyncScreenPlayback` plugin and add your
+video/image zone, the `SyncMe` Super State with its four `screen1`-`screen4` states wired
+up, and the `SyncScreenPlayback` plugin attached. You'll still need to add your
 presentation's `sync-config.json` yourself, as described below.
 
 ### 1. Create the presentation in BrightAuthor:connected
@@ -311,9 +334,9 @@ skips reinit/reboot and just rearms itself while `m.seamlessLooping = 1`.
 
 - `rlb-sync-screens.brs` — the plugin.
 - `Template-BACon-4-screens-sync.bpfx` — a BrightAuthor:connected presentation template
-  (import via `Presentation` > `Import`) with the zone and `SyncMe` Super State/screen1-4
-  states already set up, matching the walkthrough above. The plugin and
-  `sync-config.json` still need to be added per-presentation as described below.
+  (import via `Presentation` > `Import`) with the zone, `SyncMe` Super State/screen1-4
+  states, and the `SyncScreenPlayback` plugin already set up, matching the walkthrough
+  above. `sync-config.json` still needs to be added per-presentation as described below.
 - `sync-config.json` is **not** included here — it's presentation/deployment-specific
   (one file per set of video walls) and must be authored and added to each presentation's
   asset pool separately, named `<presentationName>.json`. See the format above.
